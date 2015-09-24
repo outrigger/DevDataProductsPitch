@@ -1,0 +1,147 @@
+---
+title       : Surviving the Titanic
+framework   : revealjs
+highlighter : highlight.js
+hitheme     : default 
+widgets     : []
+mode        : standalone
+knit        : slidify::knit2slides
+---
+
+## Introduction
+
+* The Titanic Survival Prediction app is an interactive shiny app that allows you to learn more about the sinking of the Titanic.
+
+* There are <span style="color:#e67e22; font-weight:bold">4 tabs</span> in this app.
+ * <span style="color:#f1c40f; font-weight:bold">Introduction</span>: Understand the background of the incident
+ * <span style="color:#f1c40f; font-weight:bold">Exploratory Data Analysis</span>: Visualise the correlation between two variables as well as split the visualisation up by the desired variable
+ * <span style="color:#f1c40f; font-weight:bold">Decision Tree</span>: Understand the key factors affecting passengers' chances of survival through Regression Trees
+ * <span style="color:#f1c40f; font-weight:bold">Will you survive?</span>: Predict your fate had you been onboard the Titanic based on the plotted Decision Tree
+
+---
+
+## Understanding the Dataset
+
+* Both the training and testing datasets were downloaded from the Kaggle website:
+ * https://www.kaggle.com/c/titanic/data
+ 
+* Data Preprocessing Steps:
+ * Loading of Training & Testing Datasets
+ 
+ ``` {r}
+  trainingDataset <- read.csv("../data/train.csv")
+  testingDataset <- read.csv("../data/test.csv")
+  summary(trainingDataset)
+ ```
+
+---
+
+## Cleaning the Dataset
+
+* In order to achieve more accurate results, data cleaning was performed to detect and remove errors and inconsistencies.
+
+ * Similar Family Titles were combined
+ ``` {r, eval = FALSE}
+    combinedDataset$Title[combinedDataset$Title %in% c('Mlle', 'Ms')] <- 'Miss'
+    combinedDataset$Title[combinedDataset$Title == 'Mme'] <- 'Mrs'
+ ```
+ 
+ * Missing Age Values were imputed
+ ``` {r, eval = FALSE}
+    ageFit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Title + FamilySize,
+                    data = combinedDataset[!is.na(combinedDataset$Age),],
+                    method = "anova")
+ ```
+ 
+ * Missing Fare Values were imputed
+ ``` {r, eval = FALSE}  
+    combinedDataset$Fare[which(is.na(combinedDataset$Fare))] <- median(combinedDataset$Fare, na.rm = TRUE)
+ ```
+
+---
+
+## Building a Predictive Model
+
+* After cleaning up the data, a predictive model was built using the Recursive Partitioning and Regression Trees function, `rpart`.
+
+  ``` {r, echo = FALSE}
+  trainingDataset <- read.csv("../data/train.csv")
+  testingDataset <- read.csv("../data/test.csv")
+  
+  testingDataset$Survived <- NA
+  combinedDataset <- rbind(trainingDataset, testingDataset)
+  
+  # Process Title
+  combinedDataset$Name = as.character(combinedDataset$Name)
+  combinedDataset$Title <- sapply(combinedDataset$Name, FUN = function(x) {strsplit(x, split = '[,.]')[[1]][2]})
+  combinedDataset$Title <- sub(' ', '', combinedDataset$Title)
+  combinedDataset$Title[combinedDataset$Title %in% c('Mlle', 'Ms')] <- 'Miss'
+  combinedDataset$Title[combinedDataset$Title == 'Mme'] <- 'Mrs'
+  combinedDataset$Title[combinedDataset$Title %in% c('Capt', 'Don', 'Major', 'Col', 'Sir', 'Jonkheer')] <- 'Sir'
+  combinedDataset$Title[combinedDataset$Title %in% c('Dona', 'Lady', 'the Countess')] <- 'Lady'
+  combinedDataset$Title <- factor(combinedDataset$Title)
+  
+  # Process Family Size
+  combinedDataset$FamilySize <- combinedDataset$SibSp + combinedDataset$Parch
+  
+  # Process Family Name
+  combinedDataset$Surname <- sapply(combinedDataset$Name, FUN = function(x) {strsplit(x, split = '[,.]')[[1]][1]})
+  combinedDataset$FamilyNameProcessed1 <- paste(combinedDataset$Surname, as.character(combinedDataset$FamilySize), sep = "_")
+  
+  # Aggregate Lone Passengers & Tag as Alone
+  passengerFamilies <- data.frame(table(combinedDataset$FamilyNameProcessed1))
+  lonePassengers <- passengerFamilies[passengerFamilies$Freq == 1,]
+  combinedDataset$FamilyNameProcessed1[combinedDataset$FamilyNameProcessed1 %in% lonePassengers$Var1] <- 'Alone'
+  
+  # Aggregate Families of 2 & Tag as Small
+  familiesOfTwo <- passengerFamilies[passengerFamilies$Freq == 2,]
+  combinedDataset$FamilyNameProcessed1[combinedDataset$FamilyNameProcessed1 %in% familiesOfTwo$Var1] <- 'Small'
+  
+  combinedDataset$FamilyNameProcessed1 <- factor(combinedDataset$FamilyNameProcessed1)
+  
+  # Impute missing Age values
+  ageFit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Title + FamilySize,
+                  data = combinedDataset[!is.na(combinedDataset$Age),],
+                  method = "anova"
+                  )
+  
+  combinedDataset$Age[is.na(combinedDataset$Age)] <- predict(ageFit, combinedDataset[is.na(combinedDataset$Age),])
+  
+  # Process Port of Embarkation
+  combinedDataset$Embarked[which(combinedDataset$Embarked == '')] <- "S"
+  combinedDataset$Embarked <- factor(combinedDataset$Embarked)
+  
+  # Impute missing Fare values
+  combinedDataset$Fare[which(is.na(combinedDataset$Fare))] <- median(combinedDataset$Fare, na.rm = TRUE)
+  
+  # Further Process Family Name
+  combinedDataset$FamilyNameProcessed2 <- combinedDataset$FamilyNameProcessed1
+  combinedDataset$FamilyNameProcessed2 <- as.character(combinedDataset$FamilyNameProcessed2)
+  combinedDataset$FamilyNameProcessed2[combinedDataset$FamilySize <= 1] <- 'Alone'
+  combinedDataset$FamilyNameProcessed2[combinedDataset$FamilySize > 1 & combinedDataset$FamilySize <= 2] <- 'Small'
+  combinedDataset$FamilyNameProcessed2 <- factor(combinedDataset$FamilyNameProcessed2)
+  
+  
+  # Re-create Training & Testing Datasets
+  trainingDataset <- combinedDataset[1:891,]
+  testingDataset <- combinedDataset[892:1309,]
+  
+  trainingDataset$Survived <- factor(trainingDataset$Survived, levels = c(0, 1), labels = c('Died', 'Survived'))
+  trainingDataset$Pclass <- factor(trainingDataset$Pclass, levels = c(1, 2, 3), labels = c('First Class', 'Second Class', 'Third Class'))
+  ```
+  
+``` {r}
+fitModel <- rpart(Survived ~ as.factor(Pclass) + Sex + Age, data = trainingDataset, method = "class")
+fancyRpartPlot(fitModel)
+
+```
+
+---
+
+## Predicting your Survivability
+
+* Based on the current decision tree and inputs, the shiny app predicts whether you <span style="color:#2ecc71; font-weight:bold">survived</span> or <span style="color:#e74c3c; font-weight:bold">died</span> when the Titanic sank.
+
+<div style='text-align: center;'>
+    <img height='560' width='562' src='assets/img/survivalApp.png' />
+</div>
