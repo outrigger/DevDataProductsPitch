@@ -83,7 +83,7 @@ knit        : slidify::knit2slides
     combinedDataset$Title[combinedDataset$Title == 'Mme'] <- 'Mrs'
  ```
  
- * Missing Age Values were imputed
+ * Missing Age values were imputed
  
  ```r
     ageFit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Title + FamilySize,
@@ -91,7 +91,7 @@ knit        : slidify::knit2slides
                     method = "anova")
  ```
  
- * Missing Fare Values were imputed
+ * Missing Fare values were imputed
  
  ```r
     combinedDataset$Fare[which(is.na(combinedDataset$Fare))] <- median(combinedDataset$Fare, na.rm = TRUE)

@@ -102,7 +102,7 @@ combinedDataset$Title[combinedDataset$Title == &#39;Mme&#39;] &lt;- &#39;Mrs&#39
 </code></pre>
 
 <ul>
-<li>Missing Age Values were imputed</li>
+<li>Missing Age values were imputed</li>
 </ul>
 
 <pre><code class="r">ageFit &lt;- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Title + FamilySize,
@@ -111,7 +111,7 @@ combinedDataset$Title[combinedDataset$Title == &#39;Mme&#39;] &lt;- &#39;Mrs&#39
 </code></pre>
 
 <ul>
-<li>Missing Fare Values were imputed</li>
+<li>Missing Fare values were imputed</li>
 </ul>
 
 <pre><code class="r">combinedDataset$Fare[which(is.na(combinedDataset$Fare))] &lt;- median(combinedDataset$Fare, na.rm = TRUE)
